@@ -380,8 +380,9 @@ try:
             if st.session_state.analysis_label:
                 st.caption(f"วิเคราะห์ล่าสุด: {st.session_state.analysis_label}")
 
-        if analyze_clicked and not st.session_state.get('analyzing', False):
-            st.session_state.analyzing = True
+        if analyze_clicked:
+            # reset flag ทุกครั้งที่กดปุ่ม เพื่อป้องกัน flag ค้าง
+            st.session_state.analyzing = False
             with st.spinner(f"🧠 กำลังวิเคราะห์ {symbol} ({selected_label})..."):
                 st.session_state.analysis_text  = get_ai_analysis(
                     symbol, selected_label, df.copy(), fibo, current_p, ema50, ema200
@@ -389,7 +390,6 @@ try:
                 st.session_state.analysis_label = (
                     f"{symbol} • {selected_label} • {datetime.now(BKK).strftime('%H:%M:%S')} (ICT)"
                 )
-            st.session_state.analyzing = False
 
         if st.session_state.analysis_text:
             with st.container(border=True):
