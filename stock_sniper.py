@@ -241,11 +241,32 @@ def get_ai_analysis(symbol, interval_label, df, fibo, current_p, ema50, ema200):
         )
         prompt = build_prompt(symbol, interval_label, df, fibo, current_p, ema50, ema200)
         res = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="deepseek-r1-distill-llama-70b",
             messages=[{"role": "user", "content": prompt}],
             timeout=30,
         )
-        return res.choices[0].message.content
+        raw = res.choices[0].message.content
+
+        # ── R:R Safety Net ────────────────────────────────────────────────────
+        # คำนวณ R:R จากข้อมูลจริง แล้ว override ถ้า model ไม่ enforce
+        import re as _re
+        rr_match = _re.search(r'R[:/]R\s*[=:]\s*(\d+[.]?\d*)\s*[:/]\s*1', raw, _re.IGNORECASE)
+        buy_match = _re.search(r'Verdict.*BUY', raw, _re.IGNORECASE)
+
+        if buy_match and rr_match:
+            rr_val = float(rr_match.group(1))
+            if rr_val < 2.0:
+                override_msg = f"""
+---
+🚫 **[SYSTEM OVERRIDE — R:R Validation Failed]**
+Model สรุป BUY แต่ R:R = **{rr_val:.2f}:1 < 2.0** ซึ่งต่ำกว่าเกณฑ์ที่กำหนด
+
+✅ **Verdict ถูกต้องคือ: SKIP**
+เหตุผล: Risk/Reward ไม่คุ้มค่า — รอ Setup ที่ R:R ≥ 2.0 ก่อนเข้าเทรด
+"""
+                raw = raw + override_msg
+
+        return raw
     except Exception as e:
         err = str(e)
         if "429" in err:
@@ -420,7 +441,7 @@ try:
         st.divider()
 
         # ── AI ANALYSIS ───────────────────────────────────────────────────────
-        st.subheader("🤖 บทวิเคราะห์ (Powered by Groq × Llama 3.3 70B)")
+        st.subheader("🤖 บทวิเคราะห์ (Powered by Groq × DeepSeek R1)")
 
         col_btn, col_lbl = st.columns([2, 5])
         with col_btn:
