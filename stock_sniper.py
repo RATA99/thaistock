@@ -241,7 +241,7 @@ def get_ai_analysis(symbol, interval_label, df, fibo, current_p, ema50, ema200):
         )
         prompt = build_prompt(symbol, interval_label, df, fibo, current_p, ema50, ema200)
         res = client.chat.completions.create(
-            model="deepseek-r1-distill-qwen-32b",
+            model="qwen/qwen3-32b",
             messages=[{"role": "user", "content": prompt}],
             timeout=30,
         )
