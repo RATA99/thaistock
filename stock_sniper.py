@@ -61,14 +61,17 @@ def calculate_indicators(df):
     df['EMA200'] = df['close'].ewm(span=200, adjust=False).mean()
     df['EMA50']  = df['close'].ewm(span=50,  adjust=False).mean()
 
-    high_p = df['high'].max()
-    low_p  = df['low'].min()
+    # ใช้ 30 แท่งล่าสุด + สูตรที่ถูกต้อง: Low + (High-Low) × Level
+    high_p = df['high'].tail(30).max()
+    low_p  = df['low'].tail(30).min()
     diff   = high_p - low_p
 
     fibo = {
-        '38.2%': high_p - 0.382 * diff,
-        '50%':   high_p - 0.500 * diff,
-        '61.8%': high_p - 0.618 * diff,
+        '23.6%': low_p + 0.236 * diff,
+        '38.2%': low_p + 0.382 * diff,
+        '50%':   low_p + 0.500 * diff,
+        '61.8%': low_p + 0.618 * diff,
+        '78.6%': low_p + 0.786 * diff,
     }
     return fibo, high_p, low_p
 
@@ -376,7 +379,7 @@ try:
             marker_color='rgba(100,100,255,0.3)', yaxis='y2',
         ))
 
-        fibo_colors = {'38.2%': '#00E676', '50%': '#FFC107', '61.8%': '#FF5252'}
+        fibo_colors = {'23.6%': '#80CBC4', '38.2%': '#00E676', '50%': '#FFC107', '61.8%': '#FF5252', '78.6%': '#CE93D8'}
         for k, v in fibo.items():
             fig.add_hline(
                 y=v, line_dash="dot", line_color=fibo_colors[k], line_width=1,
@@ -427,21 +430,24 @@ try:
         st.plotly_chart(fig, use_container_width=True)
 
         # ── Signal ──
-        if current_p >= fibo['38.2%']:
-            st.success(f"💹 **BULLISH** — {symbol} แรงซื้อยังคุมตลาด | เป้าหมาย {fibo['38.2%']:,.2f}")
-        elif current_p < ema200:
-            st.error(f"🚨 **CRITICAL** — หลุด EMA 200 ({ema200:,.2f}) | ระวังขาลง")
-        elif current_p < fibo['61.8%']:
-            st.error(f"📉 **BEARISH** — ต่ำกว่า Fibo 61.8% = {fibo['61.8%']:,.2f}")
+        # Signal อิง EMA 200 เป็นหลัก + ตำแหน่ง Fibo
+        if current_p < ema200:
+            st.error(f"🚨 **CRITICAL** — ราคาหลุด EMA 200 ({ema200:,.2f}) | แนวโน้มขาลง")
+        elif current_p < fibo['38.2%']:
+            st.error(f"📉 **BEARISH** — ต่ำกว่า Fibo 38.2% ({fibo['38.2%']:,.2f}) | ยังอยู่โซนต่ำ")
         elif current_p < fibo['50%']:
-            st.warning(f"⚖️ **NEUTRAL** — ทดสอบแนวรับ Fibo 50% = {fibo['50%']:,.2f}")
+            st.warning(f"⚖️ **WATCH** — โซน 38.2%–50% ({fibo['38.2%']:,.2f}–{fibo['50%']:,.2f}) | รอยืนยันแนวรับ")
+        elif current_p < fibo['61.8%']:
+            st.info(f"🔍 **NEUTRAL** — โซน 50%–61.8% ({fibo['50%']:,.2f}–{fibo['61.8%']:,.2f}) | ทดสอบแนวต้านกลาง")
+        elif current_p < fibo['78.6%']:
+            st.success(f"💹 **BULLISH** — ยืนเหนือ Fibo 61.8% ({fibo['61.8%']:,.2f}) | เป้าถัดไป {fibo['78.6%']:,.2f}")
         else:
-            st.info(f"🔍 **WATCH** — อยู่ในช่วง Fibo 50%–38.2%")
+            st.success(f"🚀 **STRONG BULL** — ยืนเหนือ 78.6% ({fibo['78.6%']:,.2f}) | ใกล้ High แล้ว ระวัง R:R")
 
         st.divider()
 
         # ── AI ANALYSIS ───────────────────────────────────────────────────────
-        st.subheader("🤖 บทวิเคราะห์ (Powered by Groq × DeepSeek R1)")
+        st.subheader("🤖 บทวิเคราะห์ (Powered by Groq × Qwen3 32B)")
 
         col_btn, col_lbl = st.columns([2, 5])
         with col_btn:
