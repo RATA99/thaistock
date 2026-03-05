@@ -91,92 +91,93 @@ def get_xaxis_range(df, interval):
 
 # ─── AI ANALYSIS ──────────────────────────────────────────────────────────────
 def build_prompt(symbol, interval_label, df, fibo, current_p, ema50, ema200):
-    prev_close  = df['close'].iloc[-2]
-    chg_pct     = (current_p - prev_close) / prev_close * 100
-    avg_vol     = df['volume'].tail(20).mean()
-    last_vol    = df['volume'].iloc[-1]
-    vol_ratio   = last_vol / avg_vol if avg_vol > 0 else 1
-    last10      = df.tail(10)[['time','open','high','low','close','volume']].to_dict(orient='records')
-    swing_high  = df['high'].tail(50).max()
-    swing_low   = df['low'].tail(50).min()
-    last_high   = df['high'].iloc[-1]
-    last_low    = df['low'].iloc[-1]
+    prev_close   = df['close'].iloc[-2]
+    chg_pct      = (current_p - prev_close) / prev_close * 100
+    avg_vol      = df['volume'].tail(20).mean()
+    last_vol     = df['volume'].iloc[-1]
+    vol_ratio    = last_vol / avg_vol if avg_vol > 0 else 1
+    last10       = df.tail(10)[['time','open','high','low','close','volume']].to_dict(orient='records')
 
-    closes      = df['close'].tail(50).round(0)
-    support_levels = closes.value_counts().head(3).index.tolist()
-    ema_signal  = "Golden Cross (Bullish)" if ema50 > ema200 else "Death Cross (Bearish)"
-    vol_signal  = "Volume Spike — รอยเท้าเจ้ามือ (Big Lot)" if vol_ratio >= 2 else f"Volume ปกติ ({vol_ratio:.1f}x avg)"
+    # 1-Month High/Low สำหรับ Dynamic Fibonacci
+    month_high   = df['high'].tail(30).max()
+    month_low    = df['low'].tail(30).min()
+    diff         = month_high - month_low
 
-    return f"""🛡️ The Alpha Sniper Protocol (v.2026 High-Win-Rate)
+    # คำนวณ Fibo จาก 1-Month High/Low ตามสูตร Price = Low + (High - Low) x Level
+    fib_382      = month_low + diff * 0.382
+    fib_500      = month_low + diff * 0.500
+    fib_618      = month_low + diff * 0.618
 
-Role: คุณคือ Senior Quant Strategist & Chief Investment Officer (CIO) ประสบการณ์ 30 ปี ผู้เชี่ยวชาญ Confluence Analysis เพื่อหาจุดเข้าเทรดที่มี Win Rate สูงสุด
+    last_high    = df['high'].iloc[-1]
+    last_low     = df['low'].iloc[-1]
+    ema_signal   = "อยู่เหนือ EMA 200 (Bullish Zone)" if current_p > ema200 else "อยู่ใต้ EMA 200 (Bearish Zone)"
+
+    if vol_ratio >= 2.0:
+        vol_signal = f"🔴 Volume Spike {vol_ratio:.1f}x — สัญญาณ Big Player เข้า/ออก"
+    elif vol_ratio >= 1.5:
+        vol_signal = f"🟡 Volume สูงกว่าปกติ {vol_ratio:.1f}x avg"
+    else:
+        vol_signal = f"⚪ Volume เบาบาง {vol_ratio:.1f}x avg"
+
+    return f"""Role: คุณคือ Senior Quant Trader ประสบการณ์ 30 ปี ผู้เชี่ยวชาญการวิเคราะห์หุ้นไทย (SET) เป้าหมายคือประเมิน Win Rate ของการเทรดให้สูงที่สุด โดยใช้กลยุทธ์ Multi-Timeframe และ Sector Analysis
+
+Instruction: วิเคราะห์โดยใช้ข้อมูลจาก [SEARCH INPUT] ด้านล่างเท่านั้น ห้ามใช้ระดับราคา Fibonacci หรือ EMA จากฐานข้อมูลเก่าเด็ดขาด
 
 ══════════════════════════════════════
-[INPUT DATA SECTION]
+[SEARCH INPUT DATA]
 ══════════════════════════════════════
 - Symbol          : {symbol}
-- Current Price   : {current_p:,.2f} บาท ({chg_pct:+.2f}% จากแท่งก่อน)
 - Timeframe       : {interval_label}
-- Sector/Industry : SET — วิเคราะห์จากข้อมูลที่มี
-- Market Sentiment: ประเมินจากข้อมูลด้านล่าง
-
-Macro Data:
-- High ล่าสุด  : {last_high:,.2f} | Low ล่าสุด: {last_low:,.2f}
-- Swing High   : {swing_high:,.2f} | Swing Low (50 แท่ง): {swing_low:,.2f}
-- EMA 50       : {ema50:,.2f} | EMA 200: {ema200:,.2f} → {ema_signal}
-- Fibonacci    : 38.2% = {fibo['38.2%']:,.2f} | 50% = {fibo['50%']:,.2f} | 61.8% = {fibo['61.8%']:,.2f}
-- แนวรับ Statistical (top 3): {', '.join([f'{x:,.0f}' for x in support_levels])}
-
-Micro Data:
-- Volume ล่าสุด: {last_vol:,.0f} หุ้น → {vol_signal}
-- 10 แท่งล่าสุด: {json.dumps(last10, default=str, ensure_ascii=False)}
+- Current Price   : {current_p:,.2f} บาท ({chg_pct:+.2f}% จากแท่งก่อน)
+- Sector          : SET — ประเมินจาก price action ที่มี
+- 1-Month High    : {month_high:,.2f}
+- 1-Month Low     : {month_low:,.2f}
+- EMA 50          : {ema50:,.2f}
+- EMA 200 (Macro) : {ema200:,.2f} → ราคา{ema_signal}
+- High/Low แท่งล่าสุด: {last_high:,.2f} / {last_low:,.2f}
+- Volume (15m)    : {last_vol:,.0f} หุ้น → {vol_signal}
+- 10 แท่งล่าสุด  : {json.dumps(last10, default=str, ensure_ascii=False)}
 
 ══════════════════════════════════════
-[STEP-BY-STEP ANALYSIS PROTOCOL]
+[ANALYSIS PROTOCOL]
 ══════════════════════════════════════
-วิเคราะห์ครบทุกขั้นตอน ภาษาไทย กระชับ เน้นตัวเลขและหลักฐาน:
+ทำตามขั้นตอนนี้อย่างเคร่งครัด ใช้ภาษาไทย กระชับ เน้นตัวเลข:
 
-**1. 🏭 Sector Correlation Check**
-วิเคราะห์ว่า {symbol} เคลื่อนไหวสอดคล้องกับ Sector หรือเป็น Outperformer เทียบตลาด?
+**1. 📐 Dynamic Fibonacci Calculation**
+คำนวณ Retracement จาก 1-Month High ({month_high:,.2f}) และ Low ({month_low:,.2f}) ด้วยสูตร Price = Low + (High - Low) × Level:
+- 38.2% = {fib_382:,.2f}
+- 50.0% = {fib_500:,.2f}
+- 61.8% = {fib_618:,.2f}
+→ ราคาปัจจุบัน {current_p:,.2f} อยู่ที่โซนใด และมีนัยอย่างไร?
 
-**2. 📰 Fundamental & Catalyst**
-ประเมินปัจจัยพื้นฐานและ sentiment จากข้อมูล price action ที่มี — มีสัญญาณ Smart Money สะสมหรือระบายหรือไม่?
+**2. 📰 Sector & Insider Sentiment**
+วิเคราะห์จาก price action และ volume pattern: มีสัญญาณ Smart Money สะสม (Accumulation) หรือระบาย (Distribution)?
 
-**3. 🔭 Macro Structure**
-- EMA Trend: {ema_signal} — ความหมายต่อแนวโน้มหลัก
-- Fibonacci Confluence: ราคาอยู่โซนใด และโซนถัดไปคืออะไร
-- Major Support/Resistance จาก Statistical levels
+**3. 🔭 Multi-Timeframe Confluence**
+- Macro (4h): ราคาอยู่ {ema_signal} — มีความสัมพันธ์กับแนว Fibo อย่างไร?
+- Micro (15m): {vol_signal} — ยืนยันการ "เข้าเก็บ" หรือ "ทิ้งของ"?
+- Price Pattern ใน 10 แท่งล่าสุด: ระบุ Pattern ที่เห็น (Double Bottom / Bull Flag / Lower High ฯลฯ)
 
-**4. ⚡ Micro Trigger**
-- VPA: {vol_signal} — อ่าน "รอยเท้าเจ้ามือ" จาก Volume + Price
-- Price Pattern ที่เห็นใน 10 แท่งล่าสุด (Double Bottom / Bull Flag / H&S ฯลฯ)
-- Candlestick Signal จุดกลับตัว (Engulfing / Hammer / Pin Bar)
-
-**5. 🚫 Zero Trust Validation**
-ถ้าสัญญาณ Macro + Micro ขัดแย้งกัน หรือ R:R < 1:2 → สั่ง **SKIP** ทันที พร้อมระบุเหตุผล
+**4. 🚫 The 99% Win Rate Verdict**
+ถ้าสัญญาณ 4h และ 15m ขัดแย้งกัน หรือ R:R < 1:2 → สั่ง **SKIP** ทันที พร้อมระบุเหตุผลชัดเจน
 
 ══════════════════════════════════════
-[OUTPUT: THE SNIPER BLUEPRINT]
+[FINAL OUTPUT: THE SNIPER BLUEPRINT]
 ══════════════════════════════════════
 
-**🎯 Strategic Verdict: [BUY / WAIT / SKIP]**
-เหตุผล 3 ข้อที่คมที่สุด:
-1. ...
-2. ...
-3. ...
+**🎯 Verdict: [BUY / WAIT / SKIP]** — ระบุเหตุผล 3 ข้อที่คมที่สุด
 
 **📋 Execution Table:**
 | | ราคา | เหตุผล |
 |---|---|---|
-| Entry Point | ... | ... |
-| Take Profit 1 | ... | ... |
-| Take Profit 2 | ... | ... |
+| Entry | ... | ... |
+| Target 1 | ... | ... |
+| Target 2 | ... | ... |
 | Stop Loss | ... | ... |
 
-**📐 Risk/Reward Ratio:** คำนวณให้เห็นตัวเลขชัดเจน (ต้องได้ ≥ 1:2)
+**📐 Risk/Reward Ratio:** แสดงการคำนวณให้เห็นตัวเลขชัดเจน (ต้องได้ ≥ 1:2)
 
-**👁️ Insider Monitoring:** สิ่งที่ต้องจับตาดูใน 24 ชั่วโมงข้างหน้า"""
-
+**⚠️ Expert's Warning:** สิ่งที่ต้องระวังที่สุดในรอบ 24 ชม. นี้"""
 def get_ai_analysis(symbol, interval_label, df, fibo, current_p, ema50, ema200):
     if not GROQ_API_KEY:
         return "⚠️ ไม่พบ GROQ_API_KEY — กรุณาใส่ key ใน `.streamlit/secrets.toml`\n\n```toml\nGROQ_API_KEY = 'gsk_...'\n```"
